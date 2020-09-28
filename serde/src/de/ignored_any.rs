@@ -1,7 +1,8 @@
 use crate::lib::*;
 
 use crate::de::{
-    Deserialize, Deserializer, EnumAccess, Error, MapAccess, SeqAccess, VariantAccess, Visitor,
+    Deserialize, Deserializer, EnumAccess, Error, FromFlatten, MapAccess, SeqAccess, VariantAccess,
+    Visitor,
 };
 
 /// An efficient way of discarding data from a deserializer.
@@ -236,3 +237,5 @@ impl<'de> Deserialize<'de> for IgnoredAny {
         deserializer.deserialize_ignored_any(IgnoredAny)
     }
 }
+
+impl<'de> FromFlatten<'de> for IgnoredAny {}

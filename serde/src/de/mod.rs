@@ -804,6 +804,61 @@ where
 
 ////////////////////////////////////////////////////////////////////////////////
 
+/// A data structure that can be represented in the parent structure as part
+/// of that structure, without explicit indication of beginning and ending of its
+/// boundaries. Only such structures can be used with `#[serde(flatten)]` attribute.
+///
+/// When deserialized, embedded types created with help of their builders. Associated
+/// type `Storage` is responsible to hold all intermediate data fields of the type
+/// until all values will be consumed from the shared map, that holds fields of parent
+/// and embedded types.
+///
+/// # Derive implementation
+/// When derived with `#[derive(Deserialize)]`, that trait is implemented for structs.
+///
+/// This trait has special implementation for the [`HashMap`] and the [`BTreeMap`],
+/// allowing them to consume all fields, that do not be consumed by named fields
+/// of struct. Be noted, that if your type contains `#[serde(flatten)]` struct and
+/// the map, then map field should be the last field, because derived implementation
+/// try to supply fields to each embedded fields in that order in which their is
+/// declared in the struct, and so how maps always consumes all keys, all following
+/// fields after the map won't get anything.
+///
+/// Another consequence of this implementation is that if you contain embedded maps
+/// in both parent and embedded struct, all unknown keys go to the internal map:
+///
+/// ```edition2021,no_run
+/// # use std::collections::HashMap;
+/// # use serde::Deserialize;
+/// # mod serde_json { pub fn from_str<T>(_: &str) -> Result<T, ()> { unreachable!() } }
+/// #[derive(Debug, Deserialize, PartialEq)]
+/// struct Parent {
+///     #[serde(flatten)]
+///     field: Embedded,
+///     #[serde(flatten)]
+///     outer: HashMap<String, u32>,
+/// }
+/// #[derive(Debug, Deserialize, PartialEq)]
+/// struct Embedded {
+///     #[serde(flatten)]
+///     inner: HashMap<String, u32>,
+/// }
+///
+/// let data: Parent = serde_json::from_str(r#"{ "answer": 42 }"#).unwrap();
+/// assert_eq!(data, Parent {
+///     field: Embedded {
+///         inner: [("answer".to_string(), 42)].iter().cloned().collect()
+///     },
+///     outer: HashMap::new(),
+/// });
+/// ```
+///
+/// [`HashMap`]: https://doc.rust-lang.org/std/collections/struct.HashMap.html
+/// [`BTreeMap`]: https://doc.rust-lang.org/std/collections/struct.BTreeMap.html
+pub trait FromFlatten<'de>: Sized {}
+
+////////////////////////////////////////////////////////////////////////////////
+
 /// A **data format** that can deserialize any data structure supported by
 /// Serde.
 ///

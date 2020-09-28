@@ -1,8 +1,8 @@
 use crate::lib::*;
 
 use crate::de::{
-    Deserialize, Deserializer, EnumAccess, Error, MapAccess, SeqAccess, Unexpected, VariantAccess,
-    Visitor,
+    Deserialize, Deserializer, EnumAccess, Error, FromFlatten, MapAccess, SeqAccess, Unexpected,
+    VariantAccess, Visitor,
 };
 
 use crate::seed::InPlaceSeed;
@@ -37,6 +37,8 @@ impl<'de> Deserialize<'de> for () {
         deserializer.deserialize_unit(UnitVisitor)
     }
 }
+
+impl<'de> FromFlatten<'de> for () {}
 
 #[cfg(feature = "unstable")]
 #[cfg_attr(docsrs, doc(cfg(feature = "unstable")))]
@@ -934,6 +936,8 @@ where
     // deserialize_in_place the value is profitable (probably data-dependent?)
 }
 
+impl<'de, T> FromFlatten<'de> for Option<T> where T: FromFlatten<'de> {}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 struct PhantomDataVisitor<T: ?Sized> {
@@ -1573,6 +1577,48 @@ map_impl! {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+/// Implements [`FromFlatten`] for maps.
+///
+/// Example:
+/// ```ignore
+/// map_from_flatten_impl!(BTreeMap<K: Ord, V>);
+/// ```
+///
+/// # Parameters
+///
+/// - `ty<K, V>`: name of map type, followed by template parameters for keys
+///   and values, optionally constrained by bounds. Any number of additional
+///   parameters are also permitted
+macro_rules! map_from_flatten_impl {
+    (
+        $(#[$attr:meta])*
+        $ty:ident <K $(: $kbound1:ident $(+ $kbound2:ident)*)*, V $(, $typaram:ident : $bound1:ident $(+ $bound2:ident)*)*>
+    ) => {
+        $(#[$attr])*
+        impl<'de, K, V $(, $typaram)*> FromFlatten<'de> for $ty<K, V $(, $typaram)*>
+        where
+            K: Deserialize<'de> $(+ $kbound1 $(+ $kbound2)*)*,
+            V: Deserialize<'de>,
+            $($typaram: $bound1 $(+ $bound2)*),*
+        {
+        }
+    }
+}
+
+map_from_flatten_impl!(
+    #[cfg(any(feature = "std", feature = "alloc"))]
+    #[cfg_attr(docsrs, doc(cfg(any(feature = "std", feature = "alloc"))))]
+    BTreeMap<K: Ord, V>
+);
+
+map_from_flatten_impl!(
+    #[cfg(feature = "std")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
+    HashMap<K: Eq + Hash, V>
+);
+
+////////////////////////////////////////////////////////////////////////////////
+
 #[cfg(any(feature = "std", not(no_core_net)))]
 macro_rules! parse_ip_impl {
     ($ty:ty, $expecting:expr, $size:tt) => {
@@ -1992,6 +2038,15 @@ where
     }
 }
 
+#[cfg(any(feature = "std", feature = "alloc"))]
+#[cfg_attr(docsrs, doc(cfg(any(feature = "std", feature = "alloc"))))]
+impl<'de, 'a, T> FromFlatten<'de> for Cow<'a, T>
+where
+    T: ToOwned,
+    T::Owned: FromFlatten<'de>,
+{
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 /// This impl requires the [`"rc"`] Cargo feature of Serde. The resulting
@@ -2025,6 +2080,17 @@ where
     docsrs,
     doc(cfg(all(feature = "rc", any(feature = "std", feature = "alloc"))))
 )]
+impl<'de, T> FromFlatten<'de> for RcWeak<T> where T: FromFlatten<'de> {}
+
+/// This impl requires the [`"rc"`] Cargo feature of Serde. The resulting
+/// `Weak<T>` has a reference count of 0 and cannot be upgraded.
+///
+/// [`"rc"`]: https://serde.rs/feature-flags.html#-features-rc
+#[cfg(all(feature = "rc", any(feature = "std", feature = "alloc")))]
+#[cfg_attr(
+    docsrs,
+    doc(cfg(all(feature = "rc", any(feature = "std", feature = "alloc"))))
+)]
 impl<'de, T> Deserialize<'de> for ArcWeak<T>
 where
     T: Deserialize<'de>,
@@ -2037,6 +2103,17 @@ where
         Ok(ArcWeak::new())
     }
 }
+
+/// This impl requires the [`"rc"`] Cargo feature of Serde. The resulting
+/// `Weak<T>` has a reference count of 0 and cannot be upgraded.
+///
+/// [`"rc"`]: https://serde.rs/feature-flags.html#-features-rc
+#[cfg(all(feature = "rc", any(feature = "std", feature = "alloc")))]
+#[cfg_attr(
+    docsrs,
+    doc(cfg(all(feature = "rc", any(feature = "std", feature = "alloc"))))
+)]
+impl<'de, T> FromFlatten<'de> for ArcWeak<T> where T: FromFlatten<'de> {}
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -2057,6 +2134,13 @@ macro_rules! box_forwarded_impl {
             {
                 Box::deserialize(deserializer).map(Into::into)
             }
+        }
+
+        $(#[$attr])*
+        impl<'de, T> FromFlatten<'de> for $t<T>
+        where
+            Box<T>: FromFlatten<'de>,
+        {
         }
     };
 }
@@ -2100,6 +2184,8 @@ where
         T::deserialize(deserializer).map(Cell::new)
     }
 }
+
+impl<'de, T> FromFlatten<'de> for Cell<T> where T: FromFlatten<'de> + Copy {}
 
 forwarded_impl! {
     (T), RefCell<T>, RefCell::new
@@ -3094,6 +3180,8 @@ where
         Deserialize::deserialize(deserializer).map(Wrapping)
     }
 }
+
+impl<'de, T> FromFlatten<'de> for Wrapping<T> where T: FromFlatten<'de> {}
 
 #[cfg(all(feature = "std", not(no_std_atomic)))]
 macro_rules! atomic_impl {

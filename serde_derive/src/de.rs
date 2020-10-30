@@ -895,6 +895,39 @@ fn deserialize_struct(
     deserializer: Option<TokenStream>,
     untagged: &Untagged,
 ) -> Fragment {
+    let (visitor, fields_stmt) = deserialize_struct_visitor(
+        prefix,
+        variant_ident,
+        params,
+        fields,
+        cattrs,
+        untagged,
+    );
+    let dispatch = deserialize_struct_dispatch(
+        prefix,
+        params,
+        cattrs,
+        deserializer,
+        variant_ident.is_some(),
+    );
+
+    quote_block! {
+        #visitor
+
+        #fields_stmt
+
+        #dispatch
+    }
+}
+
+fn deserialize_struct_visitor(
+    prefix: &str,
+    variant_ident: Option<&syn::Ident>,
+    params: &Parameters,
+    fields: &[Field],
+    cattrs: &attr::Container,
+    untagged: &Untagged,
+) -> (TokenStream, Option<Stmts>) {
     let is_enum = variant_ident.is_some();
 
     let this = &params.this;
@@ -936,34 +969,6 @@ fn deserialize_struct(
     let visit_map = Stmts(deserialize_map(field_struct_name(prefix), &type_path, params, fields, cattrs));
 
     let visitor_name = visitor_struct_name(prefix);
-    let visitor_expr = quote! {
-        #visitor_name {
-            marker: _serde::__private::PhantomData::<#this #ty_generics>,
-            lifetime: _serde::__private::PhantomData,
-        }
-    };
-    let dispatch = if let Some(deserializer) = deserializer {
-        quote! {
-            _serde::Deserializer::deserialize_any(#deserializer, #visitor_expr)
-        }
-    } else if is_enum && cattrs.has_flatten() {
-        quote! {
-            _serde::de::VariantAccess::newtype_variant_seed(__variant, #visitor_expr)
-        }
-    } else if is_enum {
-        quote! {
-            _serde::de::VariantAccess::struct_variant(__variant, FIELDS, #visitor_expr)
-        }
-    } else if cattrs.has_flatten() {
-        quote! {
-            _serde::Deserializer::deserialize_map(__deserializer, #visitor_expr)
-        }
-    } else {
-        let type_name = cattrs.name().deserialize_name();
-        quote! {
-            _serde::Deserializer::deserialize_struct(__deserializer, #type_name, FIELDS, #visitor_expr)
-        }
-    };
 
     let all_skipped = fields.iter().all(|field| field.attrs.skip_deserializing());
     let visitor_var = if all_skipped {
@@ -1004,7 +1009,7 @@ fn deserialize_struct(
         None
     };
 
-    quote_block! {
+    let visitor = quote! {
         #field_visitor
 
         struct #visitor_name #de_impl_generics #where_clause {
@@ -1031,8 +1036,51 @@ fn deserialize_struct(
         }
 
         #visitor_seed
+    };
 
-        #fields_stmt
+    (visitor, fields_stmt)
+}
+
+fn deserialize_struct_dispatch(
+    prefix: &str,
+    params: &Parameters,
+    cattrs: &attr::Container,
+    deserializer: Option<TokenStream>,
+    is_enum: bool,
+) -> TokenStream {
+    let this = &params.this;
+    let (_, _, ty_generics, _) = split_with_de_lifetime(params);
+
+    let visitor_name = visitor_struct_name(prefix);
+
+    let dispatch = if let Some(deserializer) = deserializer {
+        quote! {
+            _serde::Deserializer::deserialize_any(#deserializer, __visitor)
+        }
+    } else if is_enum && cattrs.has_flatten() {
+        quote! {
+            _serde::de::VariantAccess::newtype_variant_seed(__variant, __visitor)
+        }
+    } else if is_enum {
+        quote! {
+            _serde::de::VariantAccess::struct_variant(__variant, FIELDS, __visitor)
+        }
+    } else if cattrs.has_flatten() {
+        quote! {
+            _serde::Deserializer::deserialize_map(__deserializer, __visitor)
+        }
+    } else {
+        let type_name = cattrs.name().deserialize_name();
+        quote! {
+            _serde::Deserializer::deserialize_struct(__deserializer, #type_name, FIELDS, __visitor)
+        }
+    };
+
+    quote! {
+        let __visitor = #visitor_name {
+            marker: _serde::__private::PhantomData::<#this #ty_generics>,
+            lifetime: _serde::__private::PhantomData,
+        };
 
         #dispatch
     }
@@ -1312,14 +1360,37 @@ fn deserialize_internally_tagged_enum(
     let field_struct_name = field_struct_name(prefix);
 
     // Match arms to extract a variant from a string
-    let variant_arms = variants
+    let variants = variants
         .iter()
         .enumerate()
-        .filter(|&(_, variant)| !variant.attrs.skip_deserializing())
+        .filter(|&(_, variant)| !variant.attrs.skip_deserializing());
+    let arms_visitors = variants
+        .clone()
+        .filter_map(|(i, variant)| {
+            if variant.attrs.deserialize_with().is_some() {
+                return None;
+            }
+            match effective_style(variant) {
+                Style::Struct => {
+                    let (visitor, _) = deserialize_struct_visitor(
+                        &format!("Variant{}", i),
+                        Some(&variant.ident),
+                        params,
+                        &variant.fields,
+                        cattrs,
+                        &Untagged::No,
+                    );
+                    Some(visitor)
+                },
+                _ => None,
+            }
+        });
+    let variant_arms = variants
         .map(|(i, variant)| {
             let variant_name = field_i(i);
 
             let block = Match(deserialize_internally_tagged_variant(
+                &format!("Variant{}", i),
                 params,
                 variant,
                 cattrs,
@@ -1336,6 +1407,8 @@ fn deserialize_internally_tagged_enum(
 
     quote_block! {
         #variant_visitor
+
+        #(#arms_visitors)*
 
         #variants_stmt
 
@@ -1788,6 +1861,7 @@ fn deserialize_externally_tagged_variant(
 }
 
 fn deserialize_internally_tagged_variant(
+    prefix: &str,
     params: &Parameters,
     variant: &Variant,
     cattrs: &attr::Container,
@@ -1819,15 +1893,13 @@ fn deserialize_internally_tagged_variant(
             &variant.fields[0],
             &deserializer,
         ),
-        Style::Struct => deserialize_struct(
-            "",
-            Some(variant_ident),
+        Style::Struct => Fragment::Block(deserialize_struct_dispatch(
+            prefix,
             params,
-            &variant.fields,
             cattrs,
             Some(deserializer),
-            &Untagged::No,
-        ),
+            true,
+        )),
         Style::Tuple => unreachable!("checked in serde_derive_internals"),
     }
 }

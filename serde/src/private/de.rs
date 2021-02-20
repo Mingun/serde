@@ -869,6 +869,19 @@ mod content {
         {
             let mut tag = None;
             let mut vec = Vec::with_capacity(size_hint::cautious(map.size_hint()));
+
+            if let Some(k) = try!(map.next_key_seed(TagOrContentVisitor::new(self.tag_name))) {
+                match k {
+                    TagOrContent::Tag => {
+                        tag = Some(try!(map.next_value()));
+                    }
+                    TagOrContent::Content(key) => {
+                        let v = try!(map.next_value());
+                        vec.push((key, v));
+                    }
+                }
+            }
+
             while let Some(k) = try!(map.next_key_seed(TagOrContentVisitor::new(self.tag_name))) {
                 match k {
                     TagOrContent::Tag => {

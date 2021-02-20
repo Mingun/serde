@@ -10,7 +10,7 @@ use de::{DeserializeSeed, MapAccess, Unexpected};
 pub use self::content::{
     Content, ContentDeserializer, ContentRefDeserializer, EnumDeserializer,
     InternallyTaggedUnitVisitor, TagContentOtherField, TagContentOtherFieldVisitor,
-    TagOrContent, TagOrContentField, TagOrContentVisitor, TagOrContentFieldVisitor, TaggedContent, UntaggedUnitVisitor,
+    TagOrContent, TagOrContentField, TagOrContentVisitor, TagOrContentFieldVisitor, UntaggedUnitVisitor,
     drain_map,
 };
 
@@ -222,12 +222,21 @@ mod content {
     /// - `tag_name`: name of tag in the `#[serde(tag = "tag_name")]` attribute
     /// - `tag`: tag, if first value in map was a tag
     /// - `vec`: placeholder for all other key-value pairs
+    ///
+    /// # Returns
+    /// A tuple with two values:
+    /// - value of the tag
+    /// - a content with all other key-value pairs of the map
+    ///
+    /// # Errors
+    /// - If deserialization of some value failed
+    /// - If map doesn't contain tag with `tag_name`
     pub fn drain_map<'de, T, A>(
         mut map: A,
         tag_name: &'static str,
         mut tag: Option<T>,
         mut vec: Vec<(Content<'de>, Content<'de>)>,
-    ) -> Result<TaggedContent<'de, T>, A::Error>
+    ) -> Result<(T, Content<'de>), A::Error>
     where
         T: Deserialize<'de>,
         A: MapAccess<'de>,
@@ -246,10 +255,7 @@ mod content {
 
         match tag {
             None => Err(de::Error::missing_field(tag_name)),
-            Some(tag) => Ok(TaggedContent {
-                tag: tag,
-                content: Content::Map(vec),
-            }),
+            Some(tag) => Ok((tag, Content::Map(vec))),
         }
     }
 
@@ -833,14 +839,6 @@ mod content {
                 .visit_enum(visitor)
                 .map(TagOrContent::Content)
         }
-    }
-
-    /// Used by generated code to deserialize an internally tagged enum.
-    ///
-    /// Not public API.
-    pub struct TaggedContent<'de, T> {
-        pub tag: T,
-        pub content: Content<'de>,
     }
 
     /// Used by generated code to deserialize an adjacently tagged enum.

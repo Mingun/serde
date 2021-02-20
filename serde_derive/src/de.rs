@@ -1333,7 +1333,7 @@ fn deserialize_internally_tagged_enum(
         struct __Visitor;
 
         impl<'de> _serde::de::Visitor<'de> for __Visitor {
-            type Value = _serde::__private::de::TaggedContent<'de, __Field>;
+            type Value = (__Field, _serde::__private::de::Content<'de>);
 
             fn expecting(&self, __formatter: &mut _serde::__private::Formatter) -> _serde::__private::fmt::Result {
                 _serde::__private::Formatter::write_str(__formatter, #expecting)
@@ -1346,10 +1346,10 @@ fn deserialize_internally_tagged_enum(
                 match try!(_serde::de::SeqAccess::next_element(&mut __seq)) {
                     _serde::__private::Some(__tag) => {
                         let __rest = _serde::de::value::SeqAccessDeserializer::new(__seq);
-                        _serde::__private::Ok(_serde::__private::de::TaggedContent {
-                            tag: __tag,
-                            content: try!(_serde::__private::de::Content::deserialize(__rest)),
-                        })
+                        _serde::__private::Ok((
+                            __tag,
+                            try!(_serde::__private::de::Content::deserialize(__rest))
+                        ))
                     },
                     _serde::__private::None => _serde::__private::Err(_serde::de::Error::missing_field(#tag)),
                 }
@@ -1380,10 +1380,10 @@ fn deserialize_internally_tagged_enum(
             }
         }
 
-        let __tagged = try!(_serde::Deserializer::deserialize_any(__deserializer, __Visitor));
-        let __deserializer = _serde::__private::de::ContentDeserializer::<__D::Error>::new(__tagged.content);
+        let (__tag, __content) = try!(_serde::Deserializer::deserialize_any(__deserializer, __Visitor));
+        let __deserializer = _serde::__private::de::ContentDeserializer::<__D::Error>::new(__content);
 
-        match __tagged.tag {
+        match __tag {
             #(#variant_arms)*
         }
     }

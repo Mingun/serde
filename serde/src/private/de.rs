@@ -211,6 +211,47 @@ mod content {
         MapAccess, SeqAccess, Unexpected, Visitor,
     };
 
+    /// Creates `ContentDeserializer` by consuming map.
+    ///
+    /// Used by derived code for deserialisation of the internally tagged enums.
+    /// Returns tag and constructed deserializer for fetching other enum fields.
+    ///
+    /// # Parameters
+    /// - `map`: map that will be drained
+    /// - `tag_name`: name of tag in the `#[serde(tag = "tag_name")]` attribute
+    /// - `tag`: tag, if first value in map was a tag
+    /// - `vec`: placeholder for all other key-value pairs
+    pub fn drain_map<'de, T, A>(
+        mut map: A,
+        tag_name: &'static str,
+        mut tag: Option<T>,
+        mut vec: Vec<(Content<'de>, Content<'de>)>,
+    ) -> Result<TaggedContent<'de, T>, A::Error>
+    where
+        T: Deserialize<'de>,
+        A: MapAccess<'de>,
+    {
+        while let Some(key) = try!(map.next_key_seed(TagOrContentVisitor::new(tag_name))) {
+            match key {
+                TagOrContent::Tag => {
+                    if tag.is_some() {
+                        return Err(de::Error::duplicate_field(tag_name));
+                    }
+                    tag = Some(try!(map.next_value()));
+                },
+                TagOrContent::Content(key) => vec.push((key, try!(map.next_value()))),
+            }
+        }
+
+        match tag {
+            None => Err(de::Error::missing_field(tag_name)),
+            Some(tag) => Ok(TaggedContent {
+                tag: tag,
+                content: Content::Map(vec),
+            }),
+        }
+    }
+
     /// Used from generated code to buffer the contents of the Deserializer when
     /// deserializing untagged enums and internally tagged enums.
     ///
@@ -867,41 +908,18 @@ mod content {
         where
             M: MapAccess<'de>,
         {
-            let mut tag = None;
             let mut vec = Vec::with_capacity(size_hint::cautious(map.size_hint()));
 
-            if let Some(k) = try!(map.next_key_seed(TagOrContentVisitor::new(self.tag_name))) {
-                match k {
-                    TagOrContent::Tag => {
-                        tag = Some(try!(map.next_value()));
-                    }
-                    TagOrContent::Content(key) => {
-                        let v = try!(map.next_value());
-                        vec.push((key, v));
-                    }
-                }
-            }
-
-            while let Some(k) = try!(map.next_key_seed(TagOrContentVisitor::new(self.tag_name))) {
-                match k {
-                    TagOrContent::Tag => {
-                        if tag.is_some() {
-                            return Err(de::Error::duplicate_field(self.tag_name));
-                        }
-                        tag = Some(try!(map.next_value()));
-                    }
-                    TagOrContent::Content(k) => {
-                        let v = try!(map.next_value());
-                        vec.push((k, v));
-                    }
-                }
-            }
-            match tag {
+            match try!(map.next_key_seed(TagOrContentVisitor::new(self.tag_name))) {
+                Some(TagOrContent::Tag) => {
+                    let tag = try!(map.next_value());
+                    drain_map(map, self.tag_name, Some(tag), vec)
+                },
+                Some(TagOrContent::Content(key)) => {
+                    vec.push((key, try!(map.next_value())));
+                    drain_map(map, self.tag_name, None, vec)
+                },
                 None => Err(de::Error::missing_field(self.tag_name)),
-                Some(tag) => Ok(TaggedContent {
-                    tag: tag,
-                    content: Content::Map(vec),
-                }),
             }
         }
     }

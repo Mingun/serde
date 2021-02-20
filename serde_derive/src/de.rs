@@ -1330,9 +1330,57 @@ fn deserialize_internally_tagged_enum(
 
         #variants_stmt
 
-        let __tagged = try!(_serde::Deserializer::deserialize_any(
-            __deserializer,
-            _serde::__private::de::TaggedContentVisitor::<__Field>::new(#tag, #expecting)));
+        struct __Visitor;
+
+        impl<'de> _serde::de::Visitor<'de> for __Visitor {
+            type Value = _serde::__private::de::TaggedContent<'de, __Field>;
+
+            fn expecting(&self, __formatter: &mut _serde::__private::Formatter) -> _serde::__private::fmt::Result {
+                _serde::__private::Formatter::write_str(__formatter, #expecting)
+            }
+
+            fn visit_seq<__S>(self, mut __seq: __S) -> _serde::__private::Result<Self::Value, __S::Error>
+            where
+                __S: _serde::de::SeqAccess<'de>,
+            {
+                match try!(_serde::de::SeqAccess::next_element(&mut __seq)) {
+                    _serde::__private::Some(__tag) => {
+                        let __rest = _serde::de::value::SeqAccessDeserializer::new(__seq);
+                        _serde::__private::Ok(_serde::__private::de::TaggedContent {
+                            tag: __tag,
+                            content: try!(_serde::__private::de::Content::deserialize(__rest)),
+                        })
+                    },
+                    _serde::__private::None => _serde::__private::Err(_serde::de::Error::missing_field(#tag)),
+                }
+            }
+
+            fn visit_map<__M>(self, mut __map: __M) -> _serde::__private::Result<Self::Value, __M::Error>
+            where
+                __M: _serde::de::MapAccess<'de>,
+            {
+                let mut __vec = _serde::__private::Vec::with_capacity(
+                    _serde::de::MapAccess::size_hint(&__map).unwrap_or(0)
+                );
+
+                match try!(_serde::de::MapAccess::next_key_seed(
+                    &mut __map, _serde::__private::de::TagOrContentVisitor::new(#tag)
+                )) {
+                    _serde::__private::Some(_serde::__private::de::TagOrContent::Tag) => {
+                        let __tag = try!(_serde::de::MapAccess::next_value(&mut __map));
+                        _serde::__private::de::drain_map(__map, #tag, _serde::__private::Some(__tag), __vec)
+                    },
+                    _serde::__private::Some(_serde::__private::de::TagOrContent::Content(__key)) => {
+                        let __val = try!(_serde::de::MapAccess::next_value(&mut __map));
+                        __vec.push((__key, __val));
+                        _serde::__private::de::drain_map(__map, #tag, _serde::__private::None, __vec)
+                    },
+                    _serde::__private::None => _serde::__private::Err(_serde::de::Error::missing_field(#tag)),
+                }
+            }
+        }
+
+        let __tagged = try!(_serde::Deserializer::deserialize_any(__deserializer, __Visitor));
         let __deserializer = _serde::__private::de::ContentDeserializer::<__D::Error>::new(__tagged.content);
 
         match __tagged.tag {

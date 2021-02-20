@@ -826,6 +826,19 @@ declare_tests! {
         Enum::Unit => &[
             Token::UnitVariant { name: "Enum", variant: "Unit" },
         ],
+
+        Enum::Unit => &[Token::Str("Unit")],
+        Enum::Unit => &[Token::BorrowedStr("Unit")],
+        Enum::Unit => &[Token::String("Unit")],
+
+        Enum::Unit => &[Token::Bytes(b"Unit")],
+        Enum::Unit => &[Token::BorrowedBytes(b"Unit")],
+        Enum::Unit => &[Token::ByteBuf(b"Unit")],
+
+        Enum::Unit => &[Token::U8(0)],
+        Enum::Unit => &[Token::U16(0)],
+        Enum::Unit => &[Token::U32(0)],
+        Enum::Unit => &[Token::U64(0)],
     }
     test_enum_simple {
         Enum::Simple(1) => &[

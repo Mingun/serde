@@ -226,7 +226,7 @@ mod content {
     /// # Returns
     /// A tuple with two values:
     /// - value of the tag
-    /// - a content with all other key-value pairs of the map
+    /// - a deserializer with the rest content
     ///
     /// # Errors
     /// - If deserialization of some value failed
@@ -236,7 +236,7 @@ mod content {
         tag_name: &'static str,
         mut tag: Option<T>,
         mut vec: Vec<(Content<'de>, Content<'de>)>,
-    ) -> Result<(T, Content<'de>), A::Error>
+    ) -> Result<(T, ContentDeserializer<'de, A::Error>), A::Error>
     where
         T: Deserialize<'de>,
         A: MapAccess<'de>,
@@ -255,7 +255,7 @@ mod content {
 
         match tag {
             None => Err(de::Error::missing_field(tag_name)),
-            Some(tag) => Ok((tag, Content::Map(vec))),
+            Some(tag) => Ok((tag, ContentDeserializer::new(Content::Map(vec)))),
         }
     }
 

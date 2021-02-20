@@ -340,6 +340,26 @@ declare_tests! {
         UnitStruct => &[
             Token::UnitStruct { name: "UnitStruct" },
         ],
+        UnitStruct => &[
+            Token::Seq { len: Some(0) },
+            Token::SeqEnd,
+        ],
+        UnitStruct => &[
+            Token::Seq { len: None },
+            Token::SeqEnd,
+        ],
+        UnitStruct => &[
+            Token::Map { len: Some(0) },
+            Token::MapEnd,
+        ],
+        UnitStruct => &[
+            Token::Map { len: None },
+            Token::MapEnd,
+        ],
+        UnitStruct => &[
+            Token::Struct  { name: "ZeroStruct", len: 0 },
+            Token::StructEnd,
+        ],
     }
     test_newtype_struct {
         NewtypeStruct(1) => &[
@@ -1592,13 +1612,6 @@ declare_error_tests! {
             Token::F32(0.0),
         ],
         "invalid type: floating point `0`, expected isize",
-    }
-    test_unit_struct_from_seq<UnitStruct> {
-        &[
-            Token::Seq { len: Some(0) },
-            Token::SeqEnd,
-        ],
-        "invalid type: sequence, expected unit struct UnitStruct",
     }
     test_wrapping_overflow<Wrapping<u16>> {
         &[

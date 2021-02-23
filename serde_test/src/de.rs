@@ -514,12 +514,16 @@ impl<'de, 'a> VariantAccess<'de> for DeserializerEnumVisitor<'a, 'de> {
             Some(self.de.peek_token())
         };
         match token {
+            // See test_internally_tagged_struct_variant_containing_unit_variant
+            Some(Token::SeqEnd)
+            | Some(Token::MapEnd)
+            | Some(Token::StructEnd)
+            | None => Ok(()),
             Some(Token::UnitVariant { .. }) => {
                 self.de.next_token();
                 Ok(())
             }
             Some(_) => Deserialize::deserialize(self.de),
-            None => Ok(()),
         }
     }
 

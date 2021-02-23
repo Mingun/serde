@@ -220,8 +220,7 @@ mod content {
     /// # Parameters
     /// - `map`: map that will be drained
     /// - `tag_name`: name of tag in the `#[serde(tag = "tag_name")]` attribute
-    /// - `tag`: tag, if first value in map was a tag
-    /// - `vec`: placeholder for all other key-value pairs
+    /// - `first_key`: the first key already fetched from the map
     ///
     /// # Returns
     /// A tuple with two values:
@@ -234,13 +233,16 @@ mod content {
     pub fn drain_map<'de, T, A>(
         mut map: A,
         tag_name: &'static str,
-        mut tag: Option<T>,
-        mut vec: Vec<(Content<'de>, Content<'de>)>,
+        first_key: Content<'de>,
     ) -> Result<(T, ContentDeserializer<'de, A::Error>), A::Error>
     where
         T: Deserialize<'de>,
         A: MapAccess<'de>,
     {
+        let mut tag = None;
+        let mut vec = Vec::with_capacity(size_hint::cautious(map.size_hint()));
+
+        vec.push((first_key, try!(map.next_value())));
         while let Some(key) = try!(map.next_key_seed(TagOrContentVisitor::new(tag_name))) {
             match key {
                 TagOrContent::Tag => {

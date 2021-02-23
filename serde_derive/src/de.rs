@@ -1473,9 +1473,7 @@ fn deserialize_internally_tagged_enum(
             {
                 match try!(_serde::de::SeqAccess::next_element(&mut __seq)) {
                     _serde::__private::Some(__tag) => {
-                        let __rest = _serde::de::value::SeqAccessDeserializer::new(__seq);
-                        let __content = try!(_serde::__private::de::Content::deserialize(__rest));
-                        let __deserializer = _serde::__private::de::ContentDeserializer::<__S::Error>::new(__content);
+                        let __deserializer = _serde::de::value::SeqAccessDeserializer::new(__seq);
 
                         match __tag {
                             #(#variant_arms)*
@@ -1489,28 +1487,25 @@ fn deserialize_internally_tagged_enum(
             where
                 __M: _serde::de::MapAccess<#delife>,
             {
-                let mut __vec = _serde::__private::Vec::with_capacity(
-                    _serde::de::MapAccess::size_hint(&__map).unwrap_or(0)
-                );
-
+                // Read the first field. If it is a tag, immediately deserialize the typed data.
+                // Otherwise, we collect everything until we find the tag, and then deserialize
+                // using ContentDeserializer.
                 match try!(_serde::de::MapAccess::next_key_seed(
                     &mut __map, _serde::__private::de::TagOrContentVisitor::new(#tag)
                 )) {
                     _serde::__private::Some(_serde::__private::de::TagOrContent::Tag) => {
                         let __tag = try!(_serde::de::MapAccess::next_value(&mut __map));
-                        let (__tag, __deserializer) = try!(_serde::__private::de::drain_map(
-                            __map, #tag, _serde::__private::Some(__tag), __vec
-                        ));
+                        let __deserializer = _serde::de::value::MapAccessDeserializer::new(__map);
 
                         match __tag {
                             #(#variant_arms)*
                         }
                     },
                     _serde::__private::Some(_serde::__private::de::TagOrContent::Content(__key)) => {
-                        let __val = try!(_serde::de::MapAccess::next_value(&mut __map));
-                        __vec.push((__key, __val));
+                        // Drain map to Content::Map, convert it to ContentDeserializer
+                        // Special handling for tag key -- search them and return as separate result
                         let (__tag, __deserializer) = try!(_serde::__private::de::drain_map(
-                            __map, #tag, _serde::__private::None, __vec
+                            __map, #tag, __key
                         ));
 
                         match __tag {

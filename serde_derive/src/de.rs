@@ -27,26 +27,48 @@ pub fn expand_derive_deserialize(input: &mut syn::DeriveInput) -> syn::Result<To
     let (de_impl_generics, _, ty_generics, where_clause) = params.generics();
     let delife = params.borrowed.de_lifetime();
 
-    let body = if cont.attrs.transparent() {
-        deserialize_transparent(&cont, &params)
+    let (body, traits) = if cont.attrs.transparent() {
+        (deserialize_transparent(&cont, &params), None)
     } else if let Some(type_from) = cont.attrs.type_from() {
-        deserialize_from(type_from)
+        (deserialize_from(type_from), None)
     } else if let Some(type_try_from) = cont.attrs.type_try_from() {
-        deserialize_try_from(type_try_from)
+        (deserialize_try_from(type_try_from), None)
     } else if let attr::Identifier::No = cont.attrs.identifier() {
         match &cont.data {
-            Data::Enum(variants) => deserialize_enum(&params, variants, &cont.attrs),
+            Data::Enum(variants) => {
+                let body = deserialize_enum(&params, variants, &cont.attrs);
+                let from_flatten = quote! {
+                    #[automatically_derived]
+                    impl #de_impl_generics _serde::de::FromFlatten<#delife> for #ident #ty_generics #where_clause {
+                    }
+                };
+                (body, Some(from_flatten))
+            }
             Data::Struct(Style::Struct, fields) => {
-                deserialize_struct(&params, fields, &cont.attrs, StructForm::Struct)
+                let body = deserialize_struct(&params, fields, &cont.attrs, StructForm::Struct);
+                let from_flatten = quote! {
+                    #[automatically_derived]
+                    impl #de_impl_generics _serde::de::FromFlatten<#delife> for #ident #ty_generics #where_clause {
+                    }
+                };
+                (body, Some(from_flatten))
             }
             Data::Struct(Style::Tuple, fields) | Data::Struct(Style::Newtype, fields) => {
-                deserialize_tuple(&params, fields, &cont.attrs, TupleForm::Tuple)
+                (deserialize_tuple(&params, fields, &cont.attrs, TupleForm::Tuple), None)
             }
-            Data::Struct(Style::Unit, _) => deserialize_unit_struct(&params, &cont.attrs),
+            Data::Struct(Style::Unit, _) => {
+                let body = deserialize_unit_struct(&params, &cont.attrs);
+                let from_flatten = quote! {
+                    #[automatically_derived]
+                    impl #de_impl_generics _serde::de::FromFlatten<#delife> for #ident #ty_generics #where_clause {
+                    }
+                };
+                (body, Some(from_flatten))
+            }
         }
     } else {
         match &cont.data {
-            Data::Enum(variants) => deserialize_custom_identifier(&params, variants, &cont.attrs),
+            Data::Enum(variants) => (deserialize_custom_identifier(&params, variants, &cont.attrs), None),
             Data::Struct(_, _) => unreachable!("checked in serde_derive_internals"),
         }
     };
@@ -82,6 +104,7 @@ pub fn expand_derive_deserialize(input: &mut syn::DeriveInput) -> syn::Result<To
 
                 #fn_deserialize_in_place
             }
+            #traits
         }
     };
 
@@ -225,6 +248,14 @@ fn build_generics(cont: &Container, borrowed: &BorrowedLifetimes) -> syn::Generi
                 &generics,
                 needs_deserialize_bound,
                 &parse_quote!(_serde::Deserialize<#delife>),
+            );
+
+            // Add `FromFlatten` bound to generic types of all #[serde(flatten)] fields
+            let generics = bound::with_bound(
+                cont,
+                &generics,
+                |field, _| field.flatten(),
+                &parse_quote!(_serde::de::FromFlatten<#delife>),
             );
 
             bound::with_bound(

@@ -47,7 +47,8 @@ fn complex() {
 
     // Serializes to unit, deserializes from either depending on format's
     // preference.
-    assert_tokens(&Untagged::C, &[Token::Unit]);
+    assert_tokens(&Untagged::C, &[Token::UnitStruct { name: "C" }]);
+    assert_de_tokens(&Untagged::C, &[Token::Unit]);
     assert_de_tokens(&Untagged::C, &[Token::None]);
 
     assert_tokens(&Untagged::D(4), &[Token::U8(4)]);

@@ -1128,7 +1128,7 @@ fn untagged_variant() {
         },
         &[
             Token::Struct {
-                name: "InternallyTagged",
+                name: "Untagged",
                 len: 2,
             },
             Token::Str("tag"),
@@ -1146,7 +1146,7 @@ fn untagged_variant() {
         },
         &[
             Token::Struct {
-                name: "InternallyTagged",
+                name: "Untagged",
                 len: 2,
             },
             Token::Str("tag"),

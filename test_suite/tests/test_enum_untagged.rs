@@ -28,10 +28,7 @@ fn complex() {
     assert_tokens(
         &Untagged::A { a: 1 },
         &[
-            Token::Struct {
-                name: "Untagged",
-                len: 1,
-            },
+            Token::Struct { name: "A", len: 1 },
             Token::Str("a"),
             Token::U8(1),
             Token::StructEnd,
@@ -41,10 +38,7 @@ fn complex() {
     assert_tokens(
         &Untagged::B { b: 2 },
         &[
-            Token::Struct {
-                name: "Untagged",
-                len: 1,
-            },
+            Token::Struct { name: "B", len: 1 },
             Token::Str("b"),
             Token::U8(2),
             Token::StructEnd,
@@ -308,7 +302,7 @@ mod with_optional_field {
             &Enum::Struct { optional: Some(42) },
             &[
                 Token::Struct {
-                    name: "Enum",
+                    name: "Struct",
                     len: 1,
                 },
                 Token::Str("optional"),
@@ -325,7 +319,7 @@ mod with_optional_field {
             &Enum::Struct { optional: Some(42) },
             &[
                 Token::Struct {
-                    name: "Enum",
+                    name: "Struct",
                     len: 1,
                 },
                 Token::Str("optional"),
@@ -341,7 +335,7 @@ mod with_optional_field {
             &Enum::Struct { optional: None },
             &[
                 Token::Struct {
-                    name: "Enum",
+                    name: "Struct",
                     len: 1,
                 },
                 Token::Str("optional"),

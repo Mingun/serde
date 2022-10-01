@@ -466,6 +466,31 @@ mod tuple {
             ],
         );
 
+        // Map: tag + content (as named tuple)
+        assert_de_tokens(
+            &value,
+            &[
+                Token::Struct {
+                    name: "AdjacentlyTagged",
+                    len: 2,
+                },
+                Token::Str("t"),
+                Token::UnitVariant {
+                    name: "AdjacentlyTagged",
+                    variant: "Tuple",
+                },
+                Token::Str("c"),
+                Token::TupleStruct {
+                    name: "Tuple",
+                    len: 2,
+                },
+                Token::U8(1),
+                Token::U8(1),
+                Token::TupleStructEnd,
+                Token::StructEnd,
+            ],
+        );
+
         // Map: content + tag
         assert_de_tokens(
             &value,
@@ -479,6 +504,31 @@ mod tuple {
                 Token::U8(1),
                 Token::U8(1),
                 Token::TupleEnd,
+                Token::Str("t"),
+                Token::UnitVariant {
+                    name: "AdjacentlyTagged",
+                    variant: "Tuple",
+                },
+                Token::StructEnd,
+            ],
+        );
+
+        // Map: content (as named tuple) + tag
+        assert_de_tokens(
+            &value,
+            &[
+                Token::Struct {
+                    name: "AdjacentlyTagged",
+                    len: 2,
+                },
+                Token::Str("c"),
+                Token::TupleStruct {
+                    name: "Tuple",
+                    len: 2,
+                },
+                Token::U8(1),
+                Token::U8(1),
+                Token::TupleStructEnd,
                 Token::Str("t"),
                 Token::UnitVariant {
                     name: "AdjacentlyTagged",

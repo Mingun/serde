@@ -2246,10 +2246,13 @@ fn test_partially_untagged_enum() {
                 len: 2,
             },
             Token::U32(0),
-            Token::Tuple { len: 2 },
+            Token::TupleStruct {
+                name: "App",
+                len: 2,
+            },
             Token::U32(0),
             Token::U32(0),
-            Token::TupleEnd,
+            Token::TupleStructEnd,
             Token::TupleVariantEnd,
         ],
     );
@@ -2372,10 +2375,10 @@ fn test_partially_untagged_enum_desugared() {
     assert_tokens_desugared(
         D(3, 5),
         &[
-            Token::Tuple { len: 2 },
+            Token::TupleStruct { name: "D", len: 2 },
             Token::U32(3),
             Token::U32(5),
-            Token::TupleEnd,
+            Token::TupleStructEnd,
         ],
     );
 }

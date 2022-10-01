@@ -56,11 +56,41 @@ fn complex() {
     assert_tokens(
         &Untagged::F(1, 2),
         &[
+            Token::TupleStruct { name: "F", len: 2 },
+            Token::U8(1),
+            Token::U8(2),
+            Token::TupleStructEnd,
+        ],
+    );
+
+    assert_de_tokens(
+        &Untagged::F(1, 2),
+        &[
             Token::Tuple { len: 2 },
             Token::U8(1),
             Token::U8(2),
             Token::TupleEnd,
         ],
+    );
+
+    assert_de_tokens_error::<Untagged>(
+        &[
+            Token::TupleStruct { name: "F", len: 1 },
+            Token::U8(1),
+            Token::TupleStructEnd,
+        ],
+        "data did not match any variant of untagged enum Untagged",
+    );
+
+    assert_de_tokens_error::<Untagged>(
+        &[
+            Token::TupleStruct { name: "F", len: 3 },
+            Token::U8(1),
+            Token::U8(2),
+            Token::U8(3),
+            Token::TupleStructEnd,
+        ],
+        "data did not match any variant of untagged enum Untagged",
     );
 
     assert_de_tokens_error::<Untagged>(

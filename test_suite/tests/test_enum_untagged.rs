@@ -15,7 +15,7 @@ use std::collections::BTreeMap;
 #[test]
 fn complex() {
     #[derive(Debug, PartialEq, Serialize, Deserialize)]
-    #[serde(untagged)]
+    #[serde(untagged, deny_unknown_fields)]
     enum Untagged {
         A { a: u8 },
         B { b: u8 },

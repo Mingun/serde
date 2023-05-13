@@ -148,7 +148,7 @@ impl<E> UnitDeserializer<E> {
     }
 }
 
-impl<'de, E> de::Deserializer<'de> for UnitDeserializer<E>
+impl<'de, E> Deserializer<'de> for UnitDeserializer<E>
 where
     E: de::Error,
 {
@@ -162,14 +162,14 @@ where
 
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
         visitor.visit_unit()
     }
 
     fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
         visitor.visit_none()
     }
@@ -205,7 +205,7 @@ where
 }
 
 #[cfg(feature = "unstable")]
-impl<'de, E> de::Deserializer<'de> for NeverDeserializer<E>
+impl<'de, E> Deserializer<'de> for NeverDeserializer<E>
 where
     E: de::Error,
 {
@@ -213,7 +213,7 @@ where
 
     fn deserialize_any<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
         self.never
     }
@@ -259,7 +259,7 @@ macro_rules! primitive_deserializer {
             }
         }
 
-        impl<'de, E> de::Deserializer<'de> for $name<E>
+        impl<'de, E> Deserializer<'de> for $name<E>
         where
             E: de::Error,
         {
@@ -273,7 +273,7 @@ macro_rules! primitive_deserializer {
 
             fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
             where
-                V: de::Visitor<'de>,
+                V: Visitor<'de>,
             {
                 visitor.$method(self.value $($cast)*)
             }
@@ -335,7 +335,7 @@ impl<E> U32Deserializer<E> {
     }
 }
 
-impl<'de, E> de::Deserializer<'de> for U32Deserializer<E>
+impl<'de, E> Deserializer<'de> for U32Deserializer<E>
 where
     E: de::Error,
 {
@@ -349,7 +349,7 @@ where
 
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
         visitor.visit_u32(self.value)
     }
@@ -361,7 +361,7 @@ where
         visitor: V,
     ) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
         let _ = name;
         let _ = variants;
@@ -424,7 +424,7 @@ impl<'a, E> StrDeserializer<'a, E> {
     }
 }
 
-impl<'de, 'a, E> de::Deserializer<'de> for StrDeserializer<'a, E>
+impl<'de, 'a, E> Deserializer<'de> for StrDeserializer<'a, E>
 where
     E: de::Error,
 {
@@ -432,7 +432,7 @@ where
 
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
         visitor.visit_str(self.value)
     }
@@ -444,7 +444,7 @@ where
         visitor: V,
     ) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
         let _ = name;
         let _ = variants;
@@ -503,7 +503,7 @@ impl<'de, E> BorrowedStrDeserializer<'de, E> {
     }
 }
 
-impl<'de, E> de::Deserializer<'de> for BorrowedStrDeserializer<'de, E>
+impl<'de, E> Deserializer<'de> for BorrowedStrDeserializer<'de, E>
 where
     E: de::Error,
 {
@@ -511,7 +511,7 @@ where
 
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
         visitor.visit_borrowed_str(self.value)
     }
@@ -523,7 +523,7 @@ where
         visitor: V,
     ) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
         let _ = name;
         let _ = variants;
@@ -606,7 +606,7 @@ impl<E> StringDeserializer<E> {
 }
 
 #[cfg(any(feature = "std", feature = "alloc"))]
-impl<'de, E> de::Deserializer<'de> for StringDeserializer<E>
+impl<'de, E> Deserializer<'de> for StringDeserializer<E>
 where
     E: de::Error,
 {
@@ -614,7 +614,7 @@ where
 
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
         visitor.visit_string(self.value)
     }
@@ -626,7 +626,7 @@ where
         visitor: V,
     ) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
         let _ = name;
         let _ = variants;
@@ -711,7 +711,7 @@ impl<'a, E> CowStrDeserializer<'a, E> {
 }
 
 #[cfg(any(feature = "std", feature = "alloc"))]
-impl<'de, 'a, E> de::Deserializer<'de> for CowStrDeserializer<'a, E>
+impl<'de, 'a, E> Deserializer<'de> for CowStrDeserializer<'a, E>
 where
     E: de::Error,
 {
@@ -719,7 +719,7 @@ where
 
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
         match self.value {
             Cow::Borrowed(string) => visitor.visit_str(string),
@@ -734,7 +734,7 @@ where
         visitor: V,
     ) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
         let _ = name;
         let _ = variants;
@@ -928,7 +928,7 @@ where
     }
 }
 
-impl<'de, I, T, E> de::Deserializer<'de> for SeqDeserializer<I, E>
+impl<'de, I, T, E> Deserializer<'de> for SeqDeserializer<I, E>
 where
     I: Iterator<Item = T>,
     T: IntoDeserializer<'de, E>,
@@ -938,7 +938,7 @@ where
 
     fn deserialize_any<V>(mut self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
         let v = tri!(visitor.visit_seq(&mut self));
         tri!(self.end());
@@ -1063,7 +1063,7 @@ impl<A> SeqAccessDeserializer<A> {
     }
 }
 
-impl<'de, A> de::Deserializer<'de> for SeqAccessDeserializer<A>
+impl<'de, A> Deserializer<'de> for SeqAccessDeserializer<A>
 where
     A: de::SeqAccess<'de>,
 {
@@ -1071,7 +1071,7 @@ where
 
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
         visitor.visit_seq(self.seq)
     }
@@ -1154,7 +1154,7 @@ where
     }
 }
 
-impl<'de, I, E> de::Deserializer<'de> for MapDeserializer<'de, I, E>
+impl<'de, I, E> Deserializer<'de> for MapDeserializer<'de, I, E>
 where
     I: Iterator,
     I::Item: private::Pair,
@@ -1166,7 +1166,7 @@ where
 
     fn deserialize_any<V>(mut self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
         let value = tri!(visitor.visit_map(&mut self));
         tri!(self.end());
@@ -1175,7 +1175,7 @@ where
 
     fn deserialize_seq<V>(mut self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
         let value = tri!(visitor.visit_seq(&mut self));
         tri!(self.end());
@@ -1184,7 +1184,7 @@ where
 
     fn deserialize_tuple<V>(self, len: usize, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
         let _ = len;
         self.deserialize_seq(visitor)
@@ -1321,7 +1321,7 @@ where
 // sequence of pairs.
 struct PairDeserializer<A, B, E>(A, B, PhantomData<E>);
 
-impl<'de, A, B, E> de::Deserializer<'de> for PairDeserializer<A, B, E>
+impl<'de, A, B, E> Deserializer<'de> for PairDeserializer<A, B, E>
 where
     A: IntoDeserializer<'de, E>,
     B: IntoDeserializer<'de, E>,
@@ -1337,14 +1337,14 @@ where
 
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
         self.deserialize_seq(visitor)
     }
 
     fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
         let mut pair_visitor = PairVisitor(Some(self.0), Some(self.1), PhantomData);
         let pair = tri!(visitor.visit_seq(&mut pair_visitor));
@@ -1360,7 +1360,7 @@ where
 
     fn deserialize_tuple<V>(self, len: usize, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
         if len == 2 {
             self.deserialize_seq(visitor)
@@ -1466,7 +1466,7 @@ impl<A> MapAccessDeserializer<A> {
     }
 }
 
-impl<'de, A> de::Deserializer<'de> for MapAccessDeserializer<A>
+impl<'de, A> Deserializer<'de> for MapAccessDeserializer<A>
 where
     A: de::MapAccess<'de>,
 {
@@ -1474,7 +1474,7 @@ where
 
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
         visitor.visit_map(self.map)
     }
@@ -1486,7 +1486,7 @@ where
         visitor: V,
     ) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
         visitor.visit_enum(self)
     }
@@ -1531,7 +1531,7 @@ impl<A> EnumAccessDeserializer<A> {
     }
 }
 
-impl<'de, A> de::Deserializer<'de> for EnumAccessDeserializer<A>
+impl<'de, A> Deserializer<'de> for EnumAccessDeserializer<A>
 where
     A: de::EnumAccess<'de>,
 {
@@ -1539,7 +1539,7 @@ where
 
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
         visitor.visit_enum(self.access)
     }
@@ -1595,7 +1595,7 @@ mod private {
 
         fn tuple_variant<V>(self, _len: usize, _visitor: V) -> Result<V::Value, Self::Error>
         where
-            V: de::Visitor<'de>,
+            V: Visitor<'de>,
         {
             Err(de::Error::invalid_type(
                 Unexpected::UnitVariant,
@@ -1609,7 +1609,7 @@ mod private {
             _visitor: V,
         ) -> Result<V::Value, Self::Error>
         where
-            V: de::Visitor<'de>,
+            V: Visitor<'de>,
         {
             Err(de::Error::invalid_type(
                 Unexpected::UnitVariant,

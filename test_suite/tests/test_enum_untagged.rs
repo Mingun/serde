@@ -572,7 +572,7 @@ fn contains_flatten_with_integer_key() {
 
 #[test]
 fn expecting_message() {
-    #[derive(Deserialize)]
+    #[derive(Debug, Deserialize)]
     #[serde(untagged)]
     #[serde(expecting = "something strange...")]
     enum Enum {

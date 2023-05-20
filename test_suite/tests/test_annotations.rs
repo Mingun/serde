@@ -2723,19 +2723,19 @@ fn test_alias_in_flatten_context() {
 
 #[test]
 fn test_expecting_message() {
-    #[derive(Deserialize, PartialEq, Debug)]
+    #[derive(Deserialize, Debug)]
     #[serde(expecting = "something strange...")]
     struct Unit;
 
-    #[derive(Deserialize)]
+    #[derive(Deserialize, Debug)]
     #[serde(expecting = "something strange...")]
     struct Newtype(bool);
 
-    #[derive(Deserialize)]
+    #[derive(Deserialize, Debug)]
     #[serde(expecting = "something strange...")]
     struct Tuple(u32, bool);
 
-    #[derive(Deserialize)]
+    #[derive(Deserialize, Debug)]
     #[serde(expecting = "something strange...")]
     struct Struct {
         #[allow(dead_code)]
@@ -2767,7 +2767,7 @@ fn test_expecting_message() {
 
 #[test]
 fn test_expecting_message_externally_tagged_enum() {
-    #[derive(Deserialize)]
+    #[derive(Deserialize, Debug)]
     #[serde(expecting = "something strange...")]
     enum Enum {
         ExternallyTagged,
@@ -2787,7 +2787,7 @@ fn test_expecting_message_externally_tagged_enum() {
 
 #[test]
 fn test_expecting_message_internally_tagged_enum() {
-    #[derive(Deserialize)]
+    #[derive(Deserialize, Debug)]
     #[serde(tag = "tag")]
     #[serde(expecting = "something strange...")]
     enum Enum {
@@ -2808,7 +2808,7 @@ fn test_expecting_message_internally_tagged_enum() {
 
 #[test]
 fn test_expecting_message_adjacently_tagged_enum() {
-    #[derive(Deserialize)]
+    #[derive(Deserialize, Debug)]
     #[serde(tag = "tag", content = "content")]
     #[serde(expecting = "something strange...")]
     enum Enum {
@@ -2834,7 +2834,7 @@ fn test_expecting_message_adjacently_tagged_enum() {
 
 #[test]
 fn test_expecting_message_untagged_tagged_enum() {
-    #[derive(Deserialize)]
+    #[derive(Deserialize, Debug)]
     #[serde(untagged)]
     #[serde(expecting = "something strange...")]
     enum Enum {
@@ -2846,14 +2846,14 @@ fn test_expecting_message_untagged_tagged_enum() {
 
 #[test]
 fn test_expecting_message_identifier_enum() {
-    #[derive(Deserialize)]
+    #[derive(Deserialize, Debug)]
     #[serde(field_identifier)]
     #[serde(expecting = "something strange...")]
     enum FieldEnum {
         Field,
     }
 
-    #[derive(Deserialize)]
+    #[derive(Deserialize, Debug)]
     #[serde(variant_identifier)]
     #[serde(expecting = "something strange...")]
     enum VariantEnum {

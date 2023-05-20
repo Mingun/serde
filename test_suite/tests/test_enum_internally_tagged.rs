@@ -1458,7 +1458,7 @@ fn unit_variant_with_unknown_fields() {
 
 #[test]
 fn expecting_message() {
-    #[derive(Deserialize)]
+    #[derive(Debug, Deserialize)]
     #[serde(tag = "tag")]
     #[serde(expecting = "something strange...")]
     enum Enum {

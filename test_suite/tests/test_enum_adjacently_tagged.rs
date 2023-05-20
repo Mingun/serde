@@ -644,7 +644,7 @@ fn struct_with_flatten() {
 
 #[test]
 fn expecting_message() {
-    #[derive(Deserialize)]
+    #[derive(Deserialize, Debug)]
     #[serde(tag = "tag", content = "content")]
     #[serde(expecting = "something strange...")]
     enum Enum {

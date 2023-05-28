@@ -960,10 +960,8 @@ fn deserialize_struct(
         .collect();
     let field_visitor = deserialize_field_identifier(&field_names_idents, cattrs);
 
-    // untagged struct variants do not get a visit_seq method. The same applies to
-    // structs that only have a map representation.
+    // Structs with flatten fields only have a map representation and do not get a visit_seq method.
     let visit_seq = match form {
-        StructForm::Untagged(..) => None,
         _ if cattrs.has_flatten() => None,
         _ => {
             let mut_seq = if field_names_idents.is_empty() {

@@ -991,29 +991,28 @@ fn deserialize_struct(
     let field_visitor = deserialize_field_identifier(&deserialized_fields, cattrs, has_flatten);
 
     // Structs with flatten fields only have a map representation and do not get a visit_seq method.
-    let visit_seq = match form {
-        _ if has_flatten => None,
-        _ => {
-            let mut_seq = if deserialized_fields.is_empty() {
-                quote!(_)
-            } else {
-                quote!(mut __seq)
-            };
+    let visit_seq = if has_flatten {
+        None
+    } else {
+        let mut_seq = if deserialized_fields.is_empty() {
+            quote!(_)
+        } else {
+            quote!(mut __seq)
+        };
 
-            let visit_seq = Stmts(deserialize_seq(
-                &type_path, params, fields, true, cattrs, expecting,
-            ));
+        let visit_seq = Stmts(deserialize_seq(
+            &type_path, params, fields, true, cattrs, expecting,
+        ));
 
-            Some(quote! {
-                #[inline]
-                fn visit_seq<__A>(self, #mut_seq: __A) -> _serde::#private::Result<Self::Value, __A::Error>
-                where
-                    __A: _serde::de::SeqAccess<#delife>,
-                {
-                    #visit_seq
-                }
-            })
-        }
+        Some(quote! {
+            #[inline]
+            fn visit_seq<__A>(self, #mut_seq: __A) -> _serde::#private::Result<Self::Value, __A::Error>
+            where
+                __A: _serde::de::SeqAccess<#delife>,
+            {
+                #visit_seq
+            }
+        })
     };
     let visit_map = Stmts(deserialize_map(
         &type_path,

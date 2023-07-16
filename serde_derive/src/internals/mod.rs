@@ -14,7 +14,7 @@ mod symbol;
 
 use syn::Type;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum Derive {
     Serialize,
     Deserialize,

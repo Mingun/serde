@@ -517,7 +517,7 @@ fn serialize_externally_tagged_variant(
         };
     }
 
-    match effective_style(variant) {
+    match variant.ser_style() {
         Style::Unit => {
             quote_expr! {
                 _serde::Serializer::serialize_unit_variant(
@@ -588,7 +588,7 @@ fn serialize_internally_tagged_variant(
         };
     }
 
-    match effective_style(variant) {
+    match variant.ser_style() {
         Style::Unit => {
             quote_block! {
                 let mut __struct = try!(_serde::Serializer::serialize_struct(
@@ -639,7 +639,7 @@ fn serialize_adjacently_tagged_variant(
             _serde::Serialize::serialize(#ser, __serializer)
         }
     } else {
-        match effective_style(variant) {
+        match variant.ser_style() {
             Style::Unit => {
                 return quote_block! {
                     let mut __struct = try!(_serde::Serializer::serialize_struct(
@@ -743,7 +743,7 @@ fn serialize_untagged_variant(
         };
     }
 
-    match effective_style(variant) {
+    match variant.ser_style() {
         Style::Unit => {
             quote_expr! {
                 _serde::Serializer::serialize_unit(__serializer)
@@ -1268,13 +1268,6 @@ fn get_member(params: &Parameters, field: &Field, member: &Member) -> TokenStrea
         (false, Some(_)) => {
             unreachable!("getter is only allowed for remote impls");
         }
-    }
-}
-
-fn effective_style(variant: &Variant) -> Style {
-    match variant.style {
-        Style::Newtype if variant.fields[0].attrs.skip_serializing() => Style::Unit,
-        other => other,
     }
 }
 

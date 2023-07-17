@@ -1799,7 +1799,7 @@ fn deserialize_untagged_enum_after(
         let __deserializer = _serde::__private::de::ContentRefDeserializer::<__D::Error>::new(&__content);
 
         #(
-            if let _serde::__private::Ok(__ok) = #attempts {
+            if let _serde::__private::Ok::<_, __D::Error>(__ok) = #attempts {
                 return _serde::__private::Ok(__ok);
             }
         )*
@@ -1878,12 +1878,9 @@ fn deserialize_internally_tagged_variant(
                 _serde::__private::Ok(#this_value::#variant_ident #default)
             }
         }
-        Style::Newtype => deserialize_untagged_newtype_variant(
-            variant_ident,
-            params,
-            &variant.fields[0],
-            &deserializer,
-        ),
+        Style::Newtype => {
+            deserialize_untagged_newtype_variant(params, variant, cattrs, deserializer)
+        }
         Style::Struct => deserialize_struct(
             params,
             &variant.fields,
@@ -1925,12 +1922,9 @@ fn deserialize_untagged_variant(
                 }
             }
         }
-        Style::Newtype => deserialize_untagged_newtype_variant(
-            variant_ident,
-            params,
-            &variant.fields[0],
-            &deserializer,
-        ),
+        Style::Newtype => {
+            deserialize_untagged_newtype_variant(params, variant, cattrs, deserializer)
+        }
         Style::Tuple => deserialize_tuple(
             params,
             &variant.fields,
@@ -1985,27 +1979,40 @@ fn deserialize_externally_tagged_newtype_variant(
 }
 
 fn deserialize_untagged_newtype_variant(
-    variant_ident: &syn::Ident,
     params: &Parameters,
-    field: &Field,
-    deserializer: &TokenStream,
+    variant: &Variant,
+    cattrs: &attr::Container,
+    deserializer: TokenStream,
 ) -> Fragment {
     let this_value = &params.this_value;
-    let field_ty = field.ty;
-    match field.attrs.deserialize_with() {
-        None => {
-            let span = field.original.span();
-            let func = quote_spanned!(span=> <#field_ty as _serde::Deserialize>::deserialize);
+    let variant_ident = &variant.ident;
+
+    let fields = variant.fields.iter().enumerate().map(|(i, _)| field_i(i));
+    let define = variant.fields.iter().enumerate().map(|(i, field)| {
+        let name = field_i(i);
+        let field_ty = field.ty;
+        let expr = Expr(if field.attrs.skip_deserializing() {
+            expr_is_missing(field, cattrs)
+        } else {
+            let expr = match field.attrs.deserialize_with() {
+                None => {
+                    let span = field.original.span();
+                    quote_spanned!(span=> _serde::Deserialize::deserialize)
+                }
+                Some(path) => quote!(#path),
+            };
             quote_expr! {
-                _serde::__private::Result::map(#func(#deserializer), #this_value::#variant_ident)
+                try!(#expr(#deserializer))
             }
-        }
-        Some(path) => {
-            quote_block! {
-                let __value: _serde::__private::Result<#field_ty, _> = #path(#deserializer);
-                _serde::__private::Result::map(__value, #this_value::#variant_ident)
-            }
-        }
+        });
+        quote!(let #name: #field_ty = #expr;)
+    });
+
+    quote_block! {
+        #(#define)*
+        _serde::__private::Ok(#this_value::#variant_ident(
+            #(#fields,)*
+        ))
     }
 }
 

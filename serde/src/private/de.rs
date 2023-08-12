@@ -3252,7 +3252,7 @@ where
         V: Visitor<'de>,
     {
         visitor.visit_map(FlatMapAccess {
-            iter: self.0.iter(),
+            iter: self.0.iter_mut(),
             pending_content: None,
             _marker: PhantomData,
         })
@@ -3402,8 +3402,8 @@ where
 
 #[cfg(any(feature = "std", feature = "alloc"))]
 struct FlatMapAccess<'a, 'de: 'a, E> {
-    iter: slice::Iter<'a, Option<(Content<'de>, Content<'de>)>>,
-    pending_content: Option<&'a Content<'de>>,
+    iter: slice::IterMut<'a, Option<(Content<'de>, Content<'de>)>>,
+    pending_content: Option<Content<'de>>,
     _marker: PhantomData<E>,
 }
 
@@ -3419,15 +3419,10 @@ where
     where
         T: DeserializeSeed<'de>,
     {
-        for item in &mut self.iter {
-            // Items in the vector are nulled out when used by a struct.
-            if let Some((ref key, ref content)) = *item {
-                // Do not take(), instead borrow this entry. The internally tagged
-                // enum does its own buffering so we can't tell whether this entry
-                // is going to be consumed. Borrowing here leaves the entry
-                // available for later flattened fields.
+        for entry in self.iter.by_ref() {
+            if let Some((key, content)) = entry.take() {
                 self.pending_content = Some(content);
-                return seed.deserialize(ContentRefDeserializer::new(key)).map(Some);
+                return seed.deserialize(ContentDeserializer::new(key)).map(Some);
             }
         }
         Ok(None)
@@ -3438,7 +3433,7 @@ where
         T: DeserializeSeed<'de>,
     {
         match self.pending_content.take() {
-            Some(value) => seed.deserialize(ContentRefDeserializer::new(value)),
+            Some(value) => seed.deserialize(ContentDeserializer::new(value)),
             None => Err(Error::custom("MapAccess::next_value called before next_key")),
         }
     }

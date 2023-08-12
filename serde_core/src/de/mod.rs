@@ -1264,6 +1264,23 @@ pub trait Deserializer<'de>: Sized {
     {
         self.deserialize_any(visitor)
     }
+
+    /// Used to deserialize internally tagged enums flattened into other struct.
+    /// Visitor returns tuple with the tag and a deserializer from which content
+    /// can be deserialized.
+    ///
+    /// Not public API.
+    #[doc(hidden)]
+    fn __deserialize_internally_tagged_enum<T, D, V>(
+        self,
+        visitor: V,
+    ) -> Result<V::Value, Self::Error>
+    where
+        D: Deserializer<'de>,
+        V: Visitor<'de, Value = (T, D)>,
+    {
+        self.deserialize_any(visitor)
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////

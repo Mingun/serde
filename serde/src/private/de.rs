@@ -813,13 +813,13 @@ mod content {
     /// a tag in it (in case of sequence, tag is the first element of sequence).
     ///
     /// Not public API.
-    pub struct TaggedContentVisitor<T> {
+    pub struct TaggedContentVisitor<T, E> {
         tag_name: &'static str,
         expecting: &'static str,
-        value: PhantomData<T>,
+        value: PhantomData<(T, E)>,
     }
 
-    impl<T> TaggedContentVisitor<T> {
+    impl<T, E> TaggedContentVisitor<T, E> {
         /// Visitor for the content of an internally tagged enum with the given
         /// tag name.
         pub fn new(name: &'static str, expecting: &'static str) -> Self {
@@ -832,11 +832,11 @@ mod content {
     }
 
     #[cfg_attr(not(no_diagnostic_namespace), diagnostic::do_not_recommend)]
-    impl<'de, T> Visitor<'de> for TaggedContentVisitor<T>
+    impl<'de, T, E> Visitor<'de> for TaggedContentVisitor<T, E>
     where
         T: Deserialize<'de>,
     {
-        type Value = (T, Content<'de>);
+        type Value = (T, ContentDeserializer<'de, E>);
 
         fn expecting(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
             fmt.write_str(self.expecting)
@@ -853,7 +853,8 @@ mod content {
                 }
             };
             let rest = de::value::SeqAccessDeserializer::new(seq);
-            Ok((tag, tri!(ContentVisitor::new().deserialize(rest))))
+            let content = tri!(ContentVisitor::new().deserialize(rest));
+            Ok((tag, ContentDeserializer::new(content)))
         }
 
         fn visit_map<M>(self, mut map: M) -> Result<Self::Value, M::Error>
@@ -881,7 +882,7 @@ mod content {
             }
             match tag {
                 None => Err(de::Error::missing_field(self.tag_name)),
-                Some(tag) => Ok((tag, Content::Map(vec))),
+                Some(tag) => Ok((tag, ContentDeserializer::new(Content::Map(vec)))),
             }
         }
     }
@@ -3251,7 +3252,7 @@ where
         V: Visitor<'de>,
     {
         visitor.visit_map(FlatMapAccess {
-            iter: self.0.iter(),
+            iter: self.0.iter_mut(),
             pending_content: None,
             _marker: PhantomData,
         })
@@ -3316,6 +3317,21 @@ where
         visitor.visit_unit()
     }
 
+    fn __deserialize_internally_tagged_enum<T, D, V>(
+        self,
+        visitor: V,
+    ) -> Result<V::Value, Self::Error>
+    where
+        D: Deserializer<'de>,
+        V: Visitor<'de, Value = (T, D)>,
+    {
+        visitor.visit_map(InternallyTaggedAccess {
+            iter: self.0.iter(),
+            pending_content: None,
+            _marker: PhantomData,
+        })
+    }
+
     forward_to_deserialize_other! {
         deserialize_bool()
         deserialize_i8()
@@ -3341,7 +3357,7 @@ where
 }
 
 #[cfg(any(feature = "std", feature = "alloc"))]
-struct FlatMapAccess<'a, 'de: 'a, E> {
+struct InternallyTaggedAccess<'a, 'de: 'a, E> {
     iter: slice::Iter<'a, Option<(Content<'de>, Content<'de>)>>,
     pending_content: Option<&'a Content<'de>>,
     _marker: PhantomData<E>,
@@ -3349,7 +3365,7 @@ struct FlatMapAccess<'a, 'de: 'a, E> {
 
 #[cfg(any(feature = "std", feature = "alloc"))]
 #[cfg_attr(not(no_diagnostic_namespace), diagnostic::do_not_recommend)]
-impl<'a, 'de, E> MapAccess<'de> for FlatMapAccess<'a, 'de, E>
+impl<'a, 'de, E> MapAccess<'de> for InternallyTaggedAccess<'a, 'de, E>
 where
     E: Error,
 {
@@ -3379,7 +3395,45 @@ where
     {
         match self.pending_content.take() {
             Some(value) => seed.deserialize(ContentRefDeserializer::new(value)),
-            None => Err(Error::custom("value is missing")),
+            None => Err(Error::custom("next_key_seed() was not called")),
+        }
+    }
+}
+
+#[cfg(any(feature = "std", feature = "alloc"))]
+struct FlatMapAccess<'a, 'de: 'a, E> {
+    iter: slice::IterMut<'a, Option<(Content<'de>, Content<'de>)>>,
+    pending_content: Option<Content<'de>>,
+    _marker: PhantomData<E>,
+}
+
+#[cfg(any(feature = "std", feature = "alloc"))]
+impl<'a, 'de, E> MapAccess<'de> for FlatMapAccess<'a, 'de, E>
+where
+    E: Error,
+{
+    type Error = E;
+
+    fn next_key_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error>
+    where
+        T: DeserializeSeed<'de>,
+    {
+        for entry in self.iter.by_ref() {
+            if let Some((key, content)) = entry.take() {
+                self.pending_content = Some(content);
+                return seed.deserialize(ContentDeserializer::new(key)).map(Some);
+            }
+        }
+        Ok(None)
+    }
+
+    fn next_value_seed<T>(&mut self, seed: T) -> Result<T::Value, Self::Error>
+    where
+        T: DeserializeSeed<'de>,
+    {
+        match self.pending_content.take() {
+            Some(value) => seed.deserialize(ContentDeserializer::new(value)),
+            None => Err(Error::custom("next_key_seed() was not called")),
         }
     }
 }
@@ -3419,7 +3473,7 @@ where
     {
         match self.pending_content.take() {
             Some(value) => seed.deserialize(ContentDeserializer::new(value)),
-            None => Err(Error::custom("value is missing")),
+            None => Err(Error::custom("next_key_seed() was not called")),
         }
     }
 }

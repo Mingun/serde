@@ -2054,9 +2054,7 @@ mod flatten {
         #[derive(Debug, PartialEq, Deserialize)]
         struct Outer {
             #[serde(flatten)]
-            first: BTreeMap<String, String>,
-            #[serde(flatten)]
-            between: Inner,
+            first: Inner,
             #[serde(flatten)]
             second: BTreeMap<String, String>,
         }
@@ -2068,13 +2066,7 @@ mod flatten {
 
         assert_de_tokens(
             &Outer {
-                first: {
-                    let mut first = BTreeMap::new();
-                    first.insert("x".to_owned(), "X".to_owned());
-                    first.insert("y".to_owned(), "Y".to_owned());
-                    first
-                },
-                between: Inner { y: "Y".to_owned() },
+                first: Inner { y: "Y".to_owned() },
                 second: {
                     let mut second = BTreeMap::new();
                     second.insert("x".to_owned(), "X".to_owned());

@@ -25,8 +25,8 @@ pub fn expand_derive_deserialize(input: &mut syn::DeriveInput) -> syn::Result<To
     let ident = &cont.ident;
     let params = Parameters::new(&cont);
     let (de_impl_generics, _, ty_generics, where_clause) = params.generics();
-    let body = Stmts(deserialize_body(&cont, &params));
     let delife = params.borrowed.de_lifetime();
+    let body = Stmts(deserialize_body(&cont, &params));
 
     let impl_block = if let Some(remote) = cont.attrs.remote() {
         let vis = &input.vis;

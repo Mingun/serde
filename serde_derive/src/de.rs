@@ -26,7 +26,31 @@ pub fn expand_derive_deserialize(input: &mut syn::DeriveInput) -> syn::Result<To
     let params = Parameters::new(&cont);
     let (de_impl_generics, _, ty_generics, where_clause) = params.generics();
     let delife = params.borrowed.de_lifetime();
-    let body = Stmts(deserialize_body(&cont, &params));
+
+    let body = if cont.attrs.transparent() {
+        deserialize_transparent(&cont, &params)
+    } else if let Some(type_from) = cont.attrs.type_from() {
+        deserialize_from(type_from)
+    } else if let Some(type_try_from) = cont.attrs.type_try_from() {
+        deserialize_try_from(type_try_from)
+    } else if let attr::Identifier::No = cont.attrs.identifier() {
+        match &cont.data {
+            Data::Enum(variants) => deserialize_enum(&params, variants, &cont.attrs),
+            Data::Struct(Style::Struct, fields) => {
+                deserialize_struct(&params, fields, &cont.attrs, StructForm::Struct)
+            }
+            Data::Struct(Style::Tuple, fields) | Data::Struct(Style::Newtype, fields) => {
+                deserialize_tuple(&params, fields, &cont.attrs, TupleForm::Tuple)
+            }
+            Data::Struct(Style::Unit, _) => deserialize_unit_struct(&params, &cont.attrs),
+        }
+    } else {
+        match &cont.data {
+            Data::Enum(variants) => deserialize_custom_identifier(&params, variants, &cont.attrs),
+            Data::Struct(_, _) => unreachable!("checked in serde_derive_internals"),
+        }
+    };
+    let body = Stmts(body);
 
     let impl_block = if let Some(remote) = cont.attrs.remote() {
         let vis = &input.vis;
@@ -289,32 +313,6 @@ fn borrowed_lifetimes(cont: &Container) -> BorrowedLifetimes {
     }
 }
 
-fn deserialize_body(cont: &Container, params: &Parameters) -> Fragment {
-    if cont.attrs.transparent() {
-        deserialize_transparent(cont, params)
-    } else if let Some(type_from) = cont.attrs.type_from() {
-        deserialize_from(type_from)
-    } else if let Some(type_try_from) = cont.attrs.type_try_from() {
-        deserialize_try_from(type_try_from)
-    } else if let attr::Identifier::No = cont.attrs.identifier() {
-        match &cont.data {
-            Data::Enum(variants) => deserialize_enum(params, variants, &cont.attrs),
-            Data::Struct(Style::Struct, fields) => {
-                deserialize_struct(params, fields, &cont.attrs, StructForm::Struct)
-            }
-            Data::Struct(Style::Tuple, fields) | Data::Struct(Style::Newtype, fields) => {
-                deserialize_tuple(params, fields, &cont.attrs, TupleForm::Tuple)
-            }
-            Data::Struct(Style::Unit, _) => deserialize_unit_struct(params, &cont.attrs),
-        }
-    } else {
-        match &cont.data {
-            Data::Enum(variants) => deserialize_custom_identifier(params, variants, &cont.attrs),
-            Data::Struct(_, _) => unreachable!("checked in serde_derive_internals"),
-        }
-    }
-}
-
 #[cfg(feature = "deserialize_in_place")]
 fn deserialize_in_place_body(cont: &Container, params: &Parameters) -> Option<Stmts> {
     // Only remote derives have getters, and we do not generate
@@ -365,6 +363,7 @@ fn deserialize_in_place_body(_cont: &Container, _params: &Parameters) -> Option<
     None
 }
 
+/// Generates `Deserialize::deserialize` body for a type with `#[serde(transparent)]` attribute
 fn deserialize_transparent(cont: &Container, params: &Parameters) -> Fragment {
     let fields = match &cont.data {
         Data::Struct(_, fields) => fields,
@@ -423,6 +422,7 @@ fn deserialize_try_from(type_try_from: &syn::Type) -> Fragment {
     }
 }
 
+/// Generates `Deserialize::deserialize` body for a `struct Unit;`
 fn deserialize_unit_struct(params: &Parameters, cattrs: &attr::Container) -> Fragment {
     let this_type = &params.this_type;
     let this_value = &params.this_value;
@@ -477,6 +477,7 @@ enum TupleForm<'a> {
     Untagged(&'a syn::Ident, TokenStream),
 }
 
+/// Generates `Deserialize::deserialize` body for a `struct Tuple(...);` including `struct Newtype(T);`
 fn deserialize_tuple(
     params: &Parameters,
     fields: &[Field],
@@ -947,6 +948,7 @@ enum StructForm<'a> {
     Untagged(&'a syn::Ident, TokenStream),
 }
 
+/// Generates `Deserialize::deserialize` body for a `struct Struct {...}`
 fn deserialize_struct(
     params: &Parameters,
     fields: &[Field],
@@ -1217,6 +1219,7 @@ fn deserialize_struct_in_place(
     })
 }
 
+/// Generates `Deserialize::deserialize` body for an `enum Enum {...}`
 fn deserialize_enum(
     params: &Parameters,
     variants: &[Variant],

@@ -13,6 +13,7 @@ use syn::{parse_quote, Ident, Index, Member};
 
 mod enum_adjacently;
 mod enum_externally;
+mod enum_internally;
 mod struct_;
 
 pub fn expand_derive_deserialize(input: &mut syn::DeriveInput) -> syn::Result<TokenStream> {

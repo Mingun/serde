@@ -11,6 +11,7 @@ use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::{parse_quote, Ident, Index, Member};
 
+mod enum_adjacently;
 mod enum_externally;
 mod struct_;
 

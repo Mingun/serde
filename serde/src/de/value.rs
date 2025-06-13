@@ -24,6 +24,7 @@
 use crate::lib::*;
 
 use self::private::{First, Second};
+use crate::de::adapters::MapAsVariantAccess;
 use crate::de::{self, size_hint, Deserializer, Expected, IntoDeserializer, SeqAccess, Visitor};
 use crate::ser;
 
@@ -1666,14 +1667,14 @@ where
     A: de::MapAccess<'de>,
 {
     type Error = A::Error;
-    type Variant = private::MapAsEnum<A>;
+    type Variant = MapAsVariantAccess<A>;
 
     fn variant_seed<T>(mut self, seed: T) -> Result<(T::Value, Self::Variant), Self::Error>
     where
         T: de::DeserializeSeed<'de>,
     {
         match tri!(self.map.next_key_seed(seed)) {
-            Some(key) => Ok((key, private::map_as_enum(self.map))),
+            Some(key) => Ok((key, MapAsVariantAccess::new(self.map))),
             None => Err(de::Error::invalid_type(de::Unexpected::Map, &"enum")),
         }
     }
@@ -1730,9 +1731,7 @@ where
 mod private {
     use crate::lib::*;
 
-    use crate::de::{
-        self, DeserializeSeed, Deserializer, MapAccess, Unexpected, VariantAccess, Visitor,
-    };
+    use crate::de::{self, Unexpected};
 
     pub struct UnitOnly<E> {
         marker: PhantomData<E>,
@@ -1789,87 +1788,6 @@ mod private {
                 Unexpected::UnitVariant,
                 &"struct variant",
             ))
-        }
-    }
-
-    pub struct MapAsEnum<A> {
-        map: A,
-    }
-
-    pub fn map_as_enum<A>(map: A) -> MapAsEnum<A> {
-        MapAsEnum { map }
-    }
-
-    impl<'de, A> VariantAccess<'de> for MapAsEnum<A>
-    where
-        A: MapAccess<'de>,
-    {
-        type Error = A::Error;
-
-        fn unit_variant(mut self) -> Result<(), Self::Error> {
-            self.map.next_value()
-        }
-
-        fn newtype_variant_seed<T>(mut self, seed: T) -> Result<T::Value, Self::Error>
-        where
-            T: DeserializeSeed<'de>,
-        {
-            self.map.next_value_seed(seed)
-        }
-
-        fn tuple_variant<V>(mut self, len: usize, visitor: V) -> Result<V::Value, Self::Error>
-        where
-            V: Visitor<'de>,
-        {
-            self.map.next_value_seed(SeedTupleVariant { len, visitor })
-        }
-
-        fn struct_variant<V>(
-            mut self,
-            _fields: &'static [&'static str],
-            visitor: V,
-        ) -> Result<V::Value, Self::Error>
-        where
-            V: Visitor<'de>,
-        {
-            self.map.next_value_seed(SeedStructVariant { visitor })
-        }
-    }
-
-    struct SeedTupleVariant<V> {
-        len: usize,
-        visitor: V,
-    }
-
-    impl<'de, V> DeserializeSeed<'de> for SeedTupleVariant<V>
-    where
-        V: Visitor<'de>,
-    {
-        type Value = V::Value;
-
-        fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
-        where
-            D: Deserializer<'de>,
-        {
-            deserializer.deserialize_tuple(self.len, self.visitor)
-        }
-    }
-
-    struct SeedStructVariant<V> {
-        visitor: V,
-    }
-
-    impl<'de, V> DeserializeSeed<'de> for SeedStructVariant<V>
-    where
-        V: Visitor<'de>,
-    {
-        type Value = V::Value;
-
-        fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
-        where
-            D: Deserializer<'de>,
-        {
-            deserializer.deserialize_map(self.visitor)
         }
     }
 

@@ -24,7 +24,7 @@ pub fn expand_derive_deserialize(input: &mut syn::DeriveInput) -> syn::Result<To
 
     let ident = &cont.ident;
     let params = Parameters::new(&cont);
-    let (de_impl_generics, _, ty_generics, where_clause) = split_with_de_lifetime(&params);
+    let (de_impl_generics, _, ty_generics, where_clause) = params.generics();
     let body = Stmts(deserialize_body(&cont, &params));
     let delife = params.borrowed.de_lifetime();
 
@@ -152,6 +152,23 @@ impl Parameters {
     /// various Deserializer methods.
     fn type_name(&self) -> String {
         self.this_type.segments.last().unwrap().ident.to_string()
+    }
+
+    /// Split a deserialized type's generics into the pieces required for impl'ing
+    /// a `Deserialize` trait for that type. Additionally appends the `'de` lifetime
+    /// to list of impl generics.
+    fn generics(
+        &self,
+    ) -> (
+        DeImplGenerics,
+        DeTypeGenerics,
+        syn::TypeGenerics,
+        Option<&syn::WhereClause>,
+    ) {
+        let de_impl_generics = DeImplGenerics(self);
+        let de_ty_generics = DeTypeGenerics(self);
+        let (_, ty_generics, where_clause) = self.generics.split_for_impl();
+        (de_impl_generics, de_ty_generics, ty_generics, where_clause)
     }
 }
 
@@ -410,8 +427,7 @@ fn deserialize_unit_struct(params: &Parameters, cattrs: &attr::Container) -> Fra
     let this_type = &params.this_type;
     let this_value = &params.this_value;
     let type_name = cattrs.name().deserialize_name();
-    let (de_impl_generics, de_ty_generics, ty_generics, where_clause) =
-        split_with_de_lifetime(params);
+    let (de_impl_generics, de_ty_generics, ty_generics, where_clause) = params.generics();
     let delife = params.borrowed.de_lifetime();
 
     let expecting = format!("unit struct {}", params.type_name());
@@ -479,8 +495,7 @@ fn deserialize_tuple(
 
     let this_type = &params.this_type;
     let this_value = &params.this_value;
-    let (de_impl_generics, de_ty_generics, ty_generics, where_clause) =
-        split_with_de_lifetime(params);
+    let (de_impl_generics, de_ty_generics, ty_generics, where_clause) = params.generics();
     let delife = params.borrowed.de_lifetime();
 
     // If there are getters (implying private fields), construct the local type
@@ -600,8 +615,7 @@ fn deserialize_tuple_in_place(
         .count();
 
     let this_type = &params.this_type;
-    let (de_impl_generics, de_ty_generics, ty_generics, where_clause) =
-        split_with_de_lifetime(params);
+    let (de_impl_generics, de_ty_generics, ty_generics, where_clause) = params.generics();
     let delife = params.borrowed.de_lifetime();
 
     let expecting = format!("tuple struct {}", params.type_name());
@@ -941,8 +955,7 @@ fn deserialize_struct(
 ) -> Fragment {
     let this_type = &params.this_type;
     let this_value = &params.this_value;
-    let (de_impl_generics, de_ty_generics, ty_generics, where_clause) =
-        split_with_de_lifetime(params);
+    let (de_impl_generics, de_ty_generics, ty_generics, where_clause) = params.generics();
     let delife = params.borrowed.de_lifetime();
 
     // If there are getters (implying private fields), construct the local type
@@ -1128,8 +1141,7 @@ fn deserialize_struct_in_place(
     }
 
     let this_type = &params.this_type;
-    let (de_impl_generics, de_ty_generics, ty_generics, where_clause) =
-        split_with_de_lifetime(params);
+    let (de_impl_generics, de_ty_generics, ty_generics, where_clause) = params.generics();
     let delife = params.borrowed.de_lifetime();
 
     let expecting = format!("struct {}", params.type_name());
@@ -1294,8 +1306,7 @@ fn deserialize_externally_tagged_enum(
     cattrs: &attr::Container,
 ) -> Fragment {
     let this_type = &params.this_type;
-    let (de_impl_generics, de_ty_generics, ty_generics, where_clause) =
-        split_with_de_lifetime(params);
+    let (de_impl_generics, de_ty_generics, ty_generics, where_clause) = params.generics();
     let delife = params.borrowed.de_lifetime();
 
     let type_name = cattrs.name().deserialize_name();
@@ -1438,8 +1449,7 @@ fn deserialize_adjacently_tagged_enum(
 ) -> Fragment {
     let this_type = &params.this_type;
     let this_value = &params.this_value;
-    let (de_impl_generics, de_ty_generics, ty_generics, where_clause) =
-        split_with_de_lifetime(params);
+    let (de_impl_generics, de_ty_generics, ty_generics, where_clause) = params.generics();
     let delife = params.borrowed.de_lifetime();
 
     let (variants_stmt, variant_visitor) = prepare_enum_variant_enum(variants);
@@ -2170,8 +2180,7 @@ fn deserialize_custom_identifier(
         Some(fields)
     };
 
-    let (de_impl_generics, de_ty_generics, ty_generics, where_clause) =
-        split_with_de_lifetime(params);
+    let (de_impl_generics, de_ty_generics, ty_generics, where_clause) = params.generics();
     let delife = params.borrowed.de_lifetime();
     let visitor_impl = Stmts(deserialize_identifier(
         &this_value,
@@ -2847,7 +2856,7 @@ fn deserialize_map_in_place(
         });
 
     let this_type = &params.this_type;
-    let (_, _, ty_generics, _) = split_with_de_lifetime(params);
+    let (_, _, ty_generics, _) = params.generics();
 
     let let_default = match cattrs.default() {
         attr::Default::Default => Some(quote!(
@@ -2892,8 +2901,7 @@ fn wrap_deserialize_with(
     deserialize_with: &syn::ExprPath,
 ) -> (TokenStream, TokenStream) {
     let this_type = &params.this_type;
-    let (de_impl_generics, de_ty_generics, ty_generics, where_clause) =
-        split_with_de_lifetime(params);
+    let (de_impl_generics, de_ty_generics, ty_generics, where_clause) = params.generics();
     let delife = params.borrowed.de_lifetime();
     let deserializer_var = quote!(__deserializer);
 
@@ -3212,18 +3220,4 @@ fn place_lifetime() -> syn::LifetimeParam {
         colon_token: None,
         bounds: Punctuated::new(),
     }
-}
-
-fn split_with_de_lifetime(
-    params: &Parameters,
-) -> (
-    DeImplGenerics,
-    DeTypeGenerics,
-    syn::TypeGenerics,
-    Option<&syn::WhereClause>,
-) {
-    let de_impl_generics = DeImplGenerics(params);
-    let de_ty_generics = DeTypeGenerics(params);
-    let (_, ty_generics, where_clause) = params.generics.split_for_impl();
-    (de_impl_generics, de_ty_generics, ty_generics, where_clause)
 }

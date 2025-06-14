@@ -1215,7 +1215,7 @@ fn deserialize_enum(
         Some(variant_idx) => {
             let (tagged, untagged) = variants.split_at(variant_idx);
             let tagged_frag = Expr(deserialize_homogeneous_enum(params, tagged, cattrs));
-            deserialize_untagged_enum_after(params, untagged, cattrs, Some(tagged_frag))
+            deserialize_untagged_enum(params, untagged, cattrs, Some(tagged_frag))
         }
         None => deserialize_homogeneous_enum(params, variants, cattrs),
     }
@@ -1234,7 +1234,7 @@ fn deserialize_homogeneous_enum(
         attr::TagType::Adjacent { tag, content } => {
             deserialize_adjacently_tagged_enum(params, variants, cattrs, tag, content)
         }
-        attr::TagType::None => deserialize_untagged_enum(params, variants, cattrs),
+        attr::TagType::None => deserialize_untagged_enum(params, variants, cattrs, None),
     }
 }
 
@@ -1739,15 +1739,6 @@ fn deserialize_adjacently_tagged_enum(
 }
 
 fn deserialize_untagged_enum(
-    params: &Parameters,
-    variants: &[Variant],
-    cattrs: &attr::Container,
-) -> Fragment {
-    let first_attempt = None;
-    deserialize_untagged_enum_after(params, variants, cattrs, first_attempt)
-}
-
-fn deserialize_untagged_enum_after(
     params: &Parameters,
     variants: &[Variant],
     cattrs: &attr::Container,

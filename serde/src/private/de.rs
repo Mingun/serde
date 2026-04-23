@@ -3325,7 +3325,7 @@ where
         D: Deserializer<'de>,
         V: Visitor<'de, Value = (T, D)>,
     {
-        visitor.visit_map(FlatMapAccess {
+        visitor.visit_map(InternallyTaggedAccess {
             iter: self.0.iter(),
             pending_content: None,
             _marker: PhantomData,
@@ -3353,6 +3353,50 @@ where
         deserialize_tuple(usize)
         deserialize_tuple_struct(&'static str, usize)
         deserialize_identifier()
+    }
+}
+
+#[cfg(any(feature = "std", feature = "alloc"))]
+struct InternallyTaggedAccess<'a, 'de: 'a, E> {
+    iter: slice::Iter<'a, Option<(Content<'de>, Content<'de>)>>,
+    pending_content: Option<&'a Content<'de>>,
+    _marker: PhantomData<E>,
+}
+
+#[cfg(any(feature = "std", feature = "alloc"))]
+#[cfg_attr(not(no_diagnostic_namespace), diagnostic::do_not_recommend)]
+impl<'a, 'de, E> MapAccess<'de> for InternallyTaggedAccess<'a, 'de, E>
+where
+    E: Error,
+{
+    type Error = E;
+
+    fn next_key_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error>
+    where
+        T: DeserializeSeed<'de>,
+    {
+        for item in &mut self.iter {
+            // Items in the vector are nulled out when used by a struct.
+            if let Some((ref key, ref content)) = *item {
+                // Do not take(), instead borrow this entry. The internally tagged
+                // enum does its own buffering so we can't tell whether this entry
+                // is going to be consumed. Borrowing here leaves the entry
+                // available for later flattened fields.
+                self.pending_content = Some(content);
+                return seed.deserialize(ContentRefDeserializer::new(key)).map(Some);
+            }
+        }
+        Ok(None)
+    }
+
+    fn next_value_seed<T>(&mut self, seed: T) -> Result<T::Value, Self::Error>
+    where
+        T: DeserializeSeed<'de>,
+    {
+        match self.pending_content.take() {
+            Some(value) => seed.deserialize(ContentRefDeserializer::new(value)),
+            None => Err(Error::custom("MapAccess::next_value called before next_key")),
+        }
     }
 }
 

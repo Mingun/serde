@@ -3317,6 +3317,21 @@ where
         visitor.visit_unit()
     }
 
+    fn deserialize_internally_tagged_enum<T, D, V>(
+        self,
+        visitor: V,
+    ) -> Result<V::Value, Self::Error>
+    where
+        D: Deserializer<'de>,
+        V: Visitor<'de, Value = (T, D)>,
+    {
+        visitor.visit_map(FlatMapAccess {
+            iter: self.0.iter(),
+            pending_content: None,
+            _marker: PhantomData,
+        })
+    }
+
     forward_to_deserialize_other! {
         deserialize_bool()
         deserialize_i8()

@@ -51,7 +51,7 @@ pub(super) fn deserialize(
 
         #variants_stmt
 
-        let (__tag, __deserializer) = _serde::Deserializer::deserialize_any(
+        let (__tag, __deserializer) = _serde::Deserializer::deserialize_internally_tagged_enum(
             __deserializer,
             _serde::#private::de::TaggedContentVisitor::<__Field, __D::Error>::new(#tag, #expecting))?;
 

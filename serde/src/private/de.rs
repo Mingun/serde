@@ -813,13 +813,13 @@ mod content {
     /// a tag in it (in case of sequence, tag is the first element of sequence).
     ///
     /// Not public API.
-    pub struct TaggedContentVisitor<T> {
+    pub struct TaggedContentVisitor<T, E> {
         tag_name: &'static str,
         expecting: &'static str,
-        value: PhantomData<T>,
+        value: PhantomData<(T, E)>,
     }
 
-    impl<T> TaggedContentVisitor<T> {
+    impl<T, E> TaggedContentVisitor<T, E> {
         /// Visitor for the content of an internally tagged enum with the given
         /// tag name.
         pub fn new(name: &'static str, expecting: &'static str) -> Self {
@@ -832,11 +832,11 @@ mod content {
     }
 
     #[cfg_attr(not(no_diagnostic_namespace), diagnostic::do_not_recommend)]
-    impl<'de, T> Visitor<'de> for TaggedContentVisitor<T>
+    impl<'de, T, E> Visitor<'de> for TaggedContentVisitor<T, E>
     where
         T: Deserialize<'de>,
     {
-        type Value = (T, Content<'de>);
+        type Value = (T, ContentDeserializer<'de, E>);
 
         fn expecting(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
             fmt.write_str(self.expecting)
@@ -853,7 +853,8 @@ mod content {
                 }
             };
             let rest = de::value::SeqAccessDeserializer::new(seq);
-            Ok((tag, tri!(ContentVisitor::new().deserialize(rest))))
+            let content = tri!(ContentVisitor::new().deserialize(rest));
+            Ok((tag, ContentDeserializer::new(content)))
         }
 
         fn visit_map<M>(self, mut map: M) -> Result<Self::Value, M::Error>
@@ -881,7 +882,7 @@ mod content {
             }
             match tag {
                 None => Err(de::Error::missing_field(self.tag_name)),
-                Some(tag) => Ok((tag, Content::Map(vec))),
+                Some(tag) => Ok((tag, ContentDeserializer::new(Content::Map(vec)))),
             }
         }
     }

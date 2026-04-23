@@ -3379,7 +3379,7 @@ where
     {
         match self.pending_content.take() {
             Some(value) => seed.deserialize(ContentRefDeserializer::new(value)),
-            None => Err(Error::custom("value is missing")),
+            None => Err(Error::custom("MapAccess::next_value called before next_key")),
         }
     }
 }
@@ -3419,7 +3419,7 @@ where
     {
         match self.pending_content.take() {
             Some(value) => seed.deserialize(ContentDeserializer::new(value)),
-            None => Err(Error::custom("value is missing")),
+            None => Err(Error::custom("MapAccess::next_value called before next_key")),
         }
     }
 }
